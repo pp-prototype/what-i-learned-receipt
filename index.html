@@ -64,27 +64,47 @@
           <label class="block">
             <span class="text-sm font-bold text-stone-800">제목</span>
             <input
+              id="receipt-title"
               type="text"
               placeholder="오늘의 학습 제목"
               class="mt-2 w-full rounded-[8px] border border-stone-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
             />
           </label>
 
-          <label class="block">
+          <div class="block">
             <span class="text-sm font-bold text-stone-800">사진</span>
-            <div class="mt-2 flex aspect-[4/3] cursor-pointer items-center justify-center rounded-[8px] border-2 border-dashed border-orange-200 bg-orange-50 text-center transition hover:border-orange-300 hover:bg-orange-100">
-              <div class="px-5">
-                <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white text-2xl shadow-sm">+</div>
+            <label
+              for="photo-upload"
+              class="relative mt-2 flex aspect-[4/3] cursor-pointer items-center justify-center overflow-hidden rounded-[8px] border-2 border-dashed border-orange-200 bg-orange-50 text-center transition hover:border-orange-300 hover:bg-orange-100"
+            >
+              <img
+                id="photo-preview"
+                src=""
+                alt="업로드한 학습 사진 미리보기"
+                class="hidden h-full w-full bg-white object-contain"
+              />
+              <div id="photo-placeholder" class="px-5">
+                <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white text-2xl shadow-sm">
+                  +
+                </div>
                 <p class="text-sm font-bold text-stone-800">사진 업로드</p>
                 <p class="mt-1 text-xs text-stone-500">오늘의 장면 1장</p>
               </div>
-              <input type="file" accept="image/*" class="sr-only" />
-            </div>
-          </label>
+              <input id="photo-upload" type="file" accept="image/*" class="sr-only" />
+            </label>
+            <button
+              id="photo-remove"
+              type="button"
+              class="mt-2 hidden text-xs font-bold text-rose-600 transition hover:text-rose-700"
+            >
+              사진 제거
+            </button>
+          </div>
 
           <label class="block">
             <span class="text-sm font-bold text-stone-800">오늘 배운 것</span>
             <textarea
+              id="receipt-note"
               rows="5"
               placeholder="짧게 기록해보세요."
               class="mt-2 w-full resize-none rounded-[8px] border border-stone-200 bg-white px-4 py-3 text-sm leading-6 outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
@@ -94,6 +114,7 @@
 
         <footer class="border-t border-dashed border-stone-300 pt-5">
           <button
+            id="download-receipt"
             type="button"
             class="flex w-full items-center justify-center rounded-[8px] bg-[#2563eb] px-5 py-4 text-sm font-black text-white shadow-lg shadow-blue-800/20 transition hover:bg-[#1d4ed8] focus:outline-none focus:ring-4 focus:ring-blue-200"
           >
@@ -106,12 +127,254 @@
   </main>
   <script>
     const todayDate = document.querySelector("#today-date");
+    const photoUpload = document.querySelector("#photo-upload");
+    const photoPreview = document.querySelector("#photo-preview");
+    const photoPlaceholder = document.querySelector("#photo-placeholder");
+    const photoRemove = document.querySelector("#photo-remove");
+    const receiptTitle = document.querySelector("#receipt-title");
+    const receiptNote = document.querySelector("#receipt-note");
+    const downloadReceipt = document.querySelector("#download-receipt");
+    let previewUrl = "";
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, "0");
     const day = String(now.getDate()).padStart(2, "0");
 
     todayDate.value = `${year}-${month}-${day}`;
+
+    photoUpload.addEventListener("change", () => {
+      const file = photoUpload.files[0];
+
+      if (!file) {
+        return;
+      }
+
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+
+      previewUrl = URL.createObjectURL(file);
+      photoPreview.src = previewUrl;
+      photoPreview.classList.remove("hidden");
+      photoPlaceholder.classList.add("hidden");
+      photoRemove.classList.remove("hidden");
+    });
+
+    photoRemove.addEventListener("click", () => {
+      photoUpload.value = "";
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+        previewUrl = "";
+      }
+      photoPreview.removeAttribute("src");
+      photoPreview.classList.add("hidden");
+      photoPlaceholder.classList.remove("hidden");
+      photoRemove.classList.add("hidden");
+    });
+
+    const loadImage = (src) => {
+      return new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = reject;
+        image.src = src;
+      });
+    };
+
+    const drawRoundRect = (context, x, y, width, height, radius) => {
+      context.beginPath();
+      context.moveTo(x + radius, y);
+      context.lineTo(x + width - radius, y);
+      context.quadraticCurveTo(x + width, y, x + width, y + radius);
+      context.lineTo(x + width, y + height - radius);
+      context.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+      context.lineTo(x + radius, y + height);
+      context.quadraticCurveTo(x, y + height, x, y + height - radius);
+      context.lineTo(x, y + radius);
+      context.quadraticCurveTo(x, y, x + radius, y);
+      context.closePath();
+    };
+
+    const drawContainImage = (context, image, x, y, width, height) => {
+      const imageRatio = image.width / image.height;
+      const boxRatio = width / height;
+      let drawWidth = width;
+      let drawHeight = height;
+      let drawX = x;
+      let drawY = y;
+
+      if (imageRatio > boxRatio) {
+        drawHeight = width / imageRatio;
+        drawY = y + (height - drawHeight) / 2;
+      } else {
+        drawWidth = height * imageRatio;
+        drawX = x + (width - drawWidth) / 2;
+      }
+
+      context.drawImage(image, drawX, drawY, drawWidth, drawHeight);
+    };
+
+    const wrapText = (context, text, x, y, maxWidth, lineHeight, maxLines) => {
+      const paragraphs = text.split("\n");
+      let lineCount = 0;
+
+      for (const paragraph of paragraphs) {
+        const words = paragraph.split(" ");
+        let line = "";
+
+        for (const word of words) {
+          const testLine = line ? `${line} ${word}` : word;
+
+          if (context.measureText(testLine).width > maxWidth && line) {
+            context.fillText(line, x, y);
+            y += lineHeight;
+            lineCount += 1;
+            line = word;
+          } else {
+            line = testLine;
+          }
+
+          if (lineCount >= maxLines) {
+            return y;
+          }
+        }
+
+        if (lineCount < maxLines) {
+          context.fillText(line, x, y);
+          y += lineHeight;
+          lineCount += 1;
+        }
+      }
+
+      return y;
+    };
+
+    downloadReceipt.addEventListener("click", async () => {
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
+      const width = 900;
+      const height = 1480;
+      const padding = 72;
+      const title = receiptTitle.value.trim() || "오늘의 학습 기록";
+      const note = receiptNote.value.trim() || "오늘 배운 내용을 짧게 남겨보세요.";
+
+      canvas.width = width;
+      canvas.height = height;
+
+      context.fillStyle = "#f6efe3";
+      context.fillRect(0, 0, width, height);
+
+      context.shadowColor = "rgba(53, 46, 38, 0.22)";
+      context.shadowBlur = 48;
+      context.shadowOffsetY = 24;
+      context.fillStyle = "#fffaf1";
+      drawRoundRect(context, 54, 54, width - 108, height - 108, 18);
+      context.fill();
+      context.shadowColor = "transparent";
+
+      context.fillStyle = "#f97316";
+      drawRoundRect(context, 54, 150, 12, 82, 6);
+      context.fill();
+
+      context.fillStyle = "#44403c";
+      context.font = "700 24px Pretendard, Arial, sans-serif";
+      context.fillText("LEARNING RECEIPT", padding, 130);
+
+      context.fillStyle = "#be123c";
+      drawRoundRect(context, 696, 92, 108, 42, 21);
+      context.fill();
+      context.fillStyle = "#fff1f2";
+      context.font = "800 20px Pretendard, Arial, sans-serif";
+      context.fillText("TODAY", 718, 120);
+
+      context.strokeStyle = "#d6d3d1";
+      context.setLineDash([12, 12]);
+      context.beginPath();
+      context.moveTo(padding, 178);
+      context.lineTo(width - padding, 178);
+      context.stroke();
+      context.setLineDash([]);
+
+      context.fillStyle = "#78716c";
+      context.font = "700 22px Pretendard, Arial, sans-serif";
+      context.fillText("날짜", padding, 235);
+      context.fillStyle = "#1c1917";
+      context.font = "900 42px Pretendard, Arial, sans-serif";
+      context.fillText(todayDate.value, padding, 288);
+
+      context.fillStyle = "#1c1917";
+      context.font = "900 54px Pretendard, Arial, sans-serif";
+      const titleEndY = wrapText(context, title, padding, 390, width - padding * 2, 68, 2);
+
+      const imageBoxY = titleEndY + 44;
+      const imageBoxHeight = 390;
+      context.save();
+      drawRoundRect(context, padding, imageBoxY, width - padding * 2, imageBoxHeight, 18);
+      context.fillStyle = "#ffffff";
+      context.fill();
+      context.clip();
+
+      if (previewUrl) {
+        const image = await loadImage(previewUrl);
+        drawContainImage(context, image, padding, imageBoxY, width - padding * 2, imageBoxHeight);
+      } else {
+        context.fillStyle = "#ffedd5";
+        context.fillRect(padding, imageBoxY, width - padding * 2, imageBoxHeight);
+        context.fillStyle = "#9a3412";
+        context.font = "800 34px Pretendard, Arial, sans-serif";
+        context.textAlign = "center";
+        context.fillText("사진 없이 발행한 기록", width / 2, imageBoxY + imageBoxHeight / 2 + 12);
+        context.textAlign = "left";
+      }
+
+      context.restore();
+
+      context.strokeStyle = "#e7e5e4";
+      context.lineWidth = 2;
+      drawRoundRect(context, padding, imageBoxY, width - padding * 2, imageBoxHeight, 18);
+      context.stroke();
+
+      const noteLabelY = imageBoxY + imageBoxHeight + 72;
+      const noteBoxY = noteLabelY + 28;
+      const noteBoxHeight = 220;
+
+      context.fillStyle = "#1c1917";
+      context.font = "800 30px Pretendard, Arial, sans-serif";
+      context.fillText("오늘 배운 것", padding, noteLabelY);
+
+      context.fillStyle = "#ffffff";
+      drawRoundRect(context, padding, noteBoxY, width - padding * 2, noteBoxHeight, 14);
+      context.fill();
+
+      context.strokeStyle = "#e7e5e4";
+      context.lineWidth = 2;
+      drawRoundRect(context, padding, noteBoxY, width - padding * 2, noteBoxHeight, 14);
+      context.stroke();
+
+      context.fillStyle = "#57534e";
+      context.font = "500 28px Pretendard, Arial, sans-serif";
+      wrapText(context, note, padding + 28, noteBoxY + 48, width - padding * 2 - 56, 42, 4);
+
+      const footerLineY = noteBoxY + noteBoxHeight + 52;
+      context.strokeStyle = "#d6d3d1";
+      context.setLineDash([12, 12]);
+      context.beginPath();
+      context.moveTo(padding, footerLineY);
+      context.lineTo(width - padding, footerLineY);
+      context.stroke();
+      context.setLineDash([]);
+
+      context.fillStyle = "#2563eb";
+      context.font = "900 24px Pretendard, Arial, sans-serif";
+      context.textAlign = "center";
+      context.fillText("what-i-learned-receipt", width / 2, footerLineY + 62);
+      context.textAlign = "left";
+
+      const link = document.createElement("a");
+      link.download = `learning-receipt-${todayDate.value}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    });
   </script>
 </body>
 </html>
