@@ -62,11 +62,40 @@
 
         <div class="space-y-5 py-5">
           <label class="block">
+            <span class="text-sm font-bold text-stone-800">프로젝트</span>
+            <input
+              id="receipt-project"
+              type="text"
+              maxlength="50"
+              placeholder="예: 사이드 프로젝트, 독서 기록"
+              class="mt-2 w-full rounded-[8px] border border-stone-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
+            />
+            <span class="mt-1.5 block text-xs leading-5 text-stone-500">
+              기록을 모아볼 프로젝트 이름을 적어주세요.
+            </span>
+          </label>
+
+          <label class="block">
             <span class="text-sm font-bold text-stone-800">제목</span>
             <input
               id="receipt-title"
               type="text"
+              maxlength="80"
               placeholder="오늘의 학습 제목"
+              class="mt-2 w-full rounded-[8px] border border-stone-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
+            />
+          </label>
+
+          <label class="block">
+            <span class="flex items-center justify-between gap-3">
+              <span class="text-sm font-bold text-stone-800">부제</span>
+              <span class="text-xs font-semibold text-stone-400">선택</span>
+            </span>
+            <input
+              id="receipt-subtitle"
+              type="text"
+              maxlength="120"
+              placeholder="오늘의 진전을 한 줄로 요약해보세요."
               class="mt-2 w-full rounded-[8px] border border-stone-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
             />
           </label>
@@ -131,7 +160,9 @@
     const photoPreview = document.querySelector("#photo-preview");
     const photoPlaceholder = document.querySelector("#photo-placeholder");
     const photoRemove = document.querySelector("#photo-remove");
+    const receiptProject = document.querySelector("#receipt-project");
     const receiptTitle = document.querySelector("#receipt-title");
+    const receiptSubtitle = document.querySelector("#receipt-subtitle");
     const receiptNote = document.querySelector("#receipt-note");
     const downloadReceipt = document.querySelector("#download-receipt");
     let previewUrl = "";
@@ -277,9 +308,11 @@
       const canvas = document.createElement("canvas");
       const context = canvas.getContext("2d");
       const width = 900;
-      const height = 1480;
+      const height = 1560;
       const padding = 72;
+      const project = receiptProject.value.trim() || "나의 학습 프로젝트";
       const title = receiptTitle.value.trim() || "오늘의 학습 기록";
+      const subtitle = receiptSubtitle.value.trim();
       const note = receiptNote.value.trim() || "오늘 배운 내용을 짧게 남겨보세요.";
 
       canvas.width = width;
@@ -321,16 +354,41 @@
 
       context.fillStyle = "#78716c";
       context.font = "700 22px Pretendard, Arial, sans-serif";
-      context.fillText("날짜", padding, 235);
+      context.fillText("PROJECT", padding, 230);
       context.fillStyle = "#1c1917";
-      context.font = "900 42px Pretendard, Arial, sans-serif";
-      context.fillText(todayDate.value, padding, 288);
+      context.font = "900 34px Pretendard, Arial, sans-serif";
+      wrapText(context, project, padding, 274, 470, 42, 1);
+
+      context.fillStyle = "#78716c";
+      context.font = "700 22px Pretendard, Arial, sans-serif";
+      context.textAlign = "right";
+      context.fillText("DATE", width - padding, 230);
+      context.fillStyle = "#1c1917";
+      context.font = "900 28px Pretendard, Arial, sans-serif";
+      context.fillText(todayDate.value, width - padding, 274);
+      context.textAlign = "left";
 
       context.fillStyle = "#1c1917";
       context.font = "900 54px Pretendard, Arial, sans-serif";
-      const titleEndY = wrapText(context, title, padding, 390, width - padding * 2, 68, 2);
+      const titleEndY = wrapText(context, title, padding, 370, width - padding * 2, 68, 2);
 
-      const imageBoxY = titleEndY + 44;
+      let contentEndY = titleEndY;
+
+      if (subtitle) {
+        context.fillStyle = "#78716c";
+        context.font = "600 27px Pretendard, Arial, sans-serif";
+        contentEndY = wrapText(
+          context,
+          subtitle,
+          padding,
+          titleEndY + 6,
+          width - padding * 2,
+          38,
+          2,
+        );
+      }
+
+      const imageBoxY = contentEndY + 34;
       const imageBoxHeight = 390;
       context.save();
       drawRoundRect(context, padding, imageBoxY, width - padding * 2, imageBoxHeight, 18);
