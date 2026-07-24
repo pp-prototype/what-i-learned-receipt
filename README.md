@@ -29,3 +29,12 @@
 
 - [개선 프로젝트 작업 범위 및 기능 명세](docs/improvement-project-scope.md)
 - [Supabase 정적 웹 연결 설정](docs/supabase-setup.md)
+
+### 빌드 검증
+
+```bash
+npm install
+npm run check
+```
+
+운영 배포는 GitHub Actions의 `Deploy GitHub Pages` 워크플로를 수동 실행한다. 먼저 저장소 Actions 변수 `TURNSTILE_SITE_KEY`와 Supabase의 Turnstile CAPTCHA 설정을 완료해야 한다.
