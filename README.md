@@ -37,4 +37,12 @@ npm install
 npm run check
 ```
 
-운영 배포는 GitHub Actions의 `Deploy GitHub Pages` 워크플로를 수동 실행한다. 배포 전 Supabase의 Auth rate limit과 조직의 비용 상한 설정을 확인한다.
+### 로컬 실행
+
+```bash
+npm run dev
+```
+
+브라우저에서 `http://localhost:8000/`을 연다. 이 명령은 Tailwind와 JavaScript를 `dist`에 빌드한 뒤 올바른 디렉터리를 로컬로 제공한다.
+
+운영 배포는 GitHub Actions의 `Deploy GitHub Pages` 워크플로를 수동 실행한다. 배포 전 Google OAuth Client와 Supabase Google Provider 설정, 조직의 비용 상한을 확인한다.

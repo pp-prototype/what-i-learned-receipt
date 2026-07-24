@@ -13,9 +13,9 @@ const supabaseClient = createClient(
   },
 );
 
-const loginForm = document.querySelector("#login-form");
-const loginEmail = document.querySelector("#login-email");
-const loginSubmit = document.querySelector("#login-submit");
+const loginPanel = document.querySelector("#login-panel");
+const googleLoginButton = document.querySelector("#google-login-button");
+const googleLoginLabel = document.querySelector("#google-login-label");
 const userPanel = document.querySelector("#user-panel");
 const userEmail = document.querySelector("#user-email");
 const logoutButton = document.querySelector("#logout-button");
@@ -68,13 +68,6 @@ const setMessage = (element, message, type = "info") => {
 };
 
 const getRedirectUrl = () => `${window.location.origin}${window.location.pathname}`;
-
-const getLoginCooldownKey = () => "what-i-learned-receipt:login-cooldown";
-
-const getRemainingLoginCooldown = () => {
-  const cooldownUntil = Number(localStorage.getItem(getLoginCooldownKey()) || 0);
-  return Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000));
-};
 
 const getRecentProjectKey = () => currentUser
   ? `what-i-learned-receipt:last-project:${currentUser.id}`
@@ -153,7 +146,7 @@ const renderSession = async (user) => {
 
   if (!user) {
     projects = [];
-    loginForm.classList.remove("hidden");
+    loginPanel.classList.remove("hidden");
     userPanel.classList.add("hidden");
     userPanel.classList.remove("flex");
     receiptEditor.classList.add("hidden");
@@ -161,7 +154,7 @@ const renderSession = async (user) => {
     return;
   }
 
-  loginForm.classList.add("hidden");
+  loginPanel.classList.add("hidden");
   userPanel.classList.remove("hidden");
   userPanel.classList.add("flex");
   receiptEditor.classList.remove("hidden");
@@ -169,45 +162,31 @@ const renderSession = async (user) => {
   await loadProjects();
 };
 
-loginForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const remainingCooldown = getRemainingLoginCooldown();
-
-  if (remainingCooldown > 0) {
-    setMessage(authMessage, `잠시 후 다시 시도해주세요. (${remainingCooldown}초)`, "error");
-    return;
-  }
-
-  loginSubmit.disabled = true;
-  loginSubmit.textContent = "로그인 링크 보내는 중...";
+googleLoginButton.addEventListener("click", async () => {
+  googleLoginButton.disabled = true;
+  googleLoginLabel.textContent = "Google 로그인으로 이동하는 중...";
   setMessage(authMessage, "");
 
-  const { error } = await supabaseClient.auth.signInWithOtp({
-    email: loginEmail.value.trim(),
+  const { error } = await supabaseClient.auth.signInWithOAuth({
+    provider: "google",
     options: {
-      emailRedirectTo: getRedirectUrl(),
-      shouldCreateUser: true,
+      redirectTo: getRedirectUrl(),
+      queryParams: {
+        prompt: "select_account",
+      },
     },
   });
 
   if (error) {
-    setMessage(authMessage, "로그인 요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.", "error");
-  } else {
-    localStorage.setItem(
-      getLoginCooldownKey(),
-      String(Date.now() + appConfig.loginCooldownSeconds * 1000),
-    );
-    setMessage(authMessage, "이메일을 확인해주세요. 받은 로그인 링크를 누르면 이 화면으로 돌아옵니다.", "success");
-    loginForm.reset();
+    setMessage(authMessage, "Google 로그인을 시작하지 못했습니다. 잠시 후 다시 시도해주세요.", "error");
+    googleLoginButton.disabled = false;
+    googleLoginLabel.textContent = "Google로 계속하기";
   }
-
-  loginSubmit.disabled = false;
-  loginSubmit.textContent = "이메일로 로그인";
 });
 
 logoutButton.addEventListener("click", async () => {
   logoutButton.disabled = true;
-  const { error } = await supabaseClient.auth.signOut();
+  const { error } = await supabaseClient.auth.signOut({ scope: "local" });
 
   if (error) {
     setMessage(authMessage, "로그아웃하지 못했습니다. 잠시 후 다시 시도해주세요.", "error");

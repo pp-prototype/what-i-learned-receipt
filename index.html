@@ -31,36 +31,22 @@
         </div>
 
         <section class="max-w-md rounded-[8px] border border-stone-200 bg-white/70 p-5 shadow-sm backdrop-blur">
-          <form id="login-form" class="space-y-3">
+          <div id="login-panel" class="space-y-4">
             <div>
               <h2 class="text-base font-black text-stone-950">내 프로젝트 시작하기</h2>
               <p class="mt-1 text-sm leading-6 text-stone-600">
-                이메일로 받은 로그인 링크를 누르면 프로젝트를 저장하고 다시 선택할 수 있어요.
+                Google 계정으로 로그인하면 프로젝트를 저장하고 여러 기기에서 이어서 사용할 수 있어요.
               </p>
             </div>
-            <label class="block">
-              <span class="sr-only">이메일</span>
-              <input
-                id="login-email"
-                type="email"
-                autocomplete="email"
-                maxlength="254"
-                inputmode="email"
-                autocapitalize="none"
-                spellcheck="false"
-                required
-                placeholder="you@example.com"
-                class="w-full rounded-[8px] border border-stone-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
-              />
-            </label>
             <button
-              id="login-submit"
-              type="submit"
-              class="flex w-full items-center justify-center rounded-[8px] bg-emerald-700 px-4 py-3 text-sm font-black text-white transition hover:bg-emerald-800 focus:outline-none focus:ring-4 focus:ring-emerald-200 disabled:cursor-wait disabled:opacity-60"
+              id="google-login-button"
+              type="button"
+              class="flex w-full items-center justify-center gap-3 rounded-[8px] border border-stone-300 bg-white px-4 py-3 text-sm font-black text-stone-800 shadow-sm transition hover:bg-stone-50 focus:outline-none focus:ring-4 focus:ring-stone-200 disabled:cursor-wait disabled:opacity-60"
             >
-              이메일로 로그인
+              <span aria-hidden="true" class="flex h-6 w-6 items-center justify-center rounded-full bg-white text-base font-black text-blue-600">G</span>
+              <span id="google-login-label">Google로 계속하기</span>
             </button>
-          </form>
+          </div>
 
           <div id="user-panel" class="hidden items-center justify-between gap-3">
             <div class="min-w-0">

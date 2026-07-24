@@ -12,6 +12,7 @@
 4. 아래 마이그레이션을 파일명 순서대로 각각 복사해 실행한다.
    - [`202607240001_create_profiles_and_projects.sql`](../supabase/migrations/202607240001_create_profiles_and_projects.sql)
    - [`202607240002_limit_projects_per_user.sql`](../supabase/migrations/202607240002_limit_projects_per_user.sql)
+   - [`202607240003_use_oauth_profile_names.sql`](../supabase/migrations/202607240003_use_oauth_profile_names.sql)
 5. 각 실행이 오류 없이 완료되었는지 확인한다.
 
 이 마이그레이션은 다음 항목을 생성한다.
@@ -21,40 +22,57 @@
 - 신규 가입자의 프로필을 자동 생성하는 트리거
 - 사용자 본인의 데이터만 조회·변경하게 하는 Row Level Security 정책
 - 사용자당 프로젝트를 최대 50개로 제한하는 데이터베이스 트리거
+- Google 계정의 표시 이름을 신규 프로필에 반영하는 사용자 생성 함수
 
 마이그레이션은 같은 환경에서 다시 실행해도 기존 테이블과 정책을 안전하게 갱신할 수 있도록 작성되어 있다.
 
-## 2. 이메일 로그인 확인
+## 2. Google OAuth 애플리케이션 생성
 
-Supabase Dashboard에서 다음 항목을 확인한다.
+Google Auth Platform에서 다음 항목을 설정한다.
 
-1. `Authentication`
-2. `Providers`
-3. `Email`
-4. Email Provider 활성화
+1. Google Cloud 프로젝트를 선택하거나 새로 만든다.
+2. Google Auth Platform의 `Clients`에서 OAuth Client를 만든다.
+3. Application type은 `Web application`을 선택한다.
+4. Authorized JavaScript origins에 다음 값을 등록한다.
 
-현재 웹은 이메일 매직링크 방식의 `signInWithOtp`를 사용한다.
+```text
+https://pp-prototype.github.io
+http://localhost:8000
+```
 
-## 3. 인증 요청 제한 확인
+5. Authorized redirect URIs에 Supabase Auth 콜백을 등록한다.
 
-Supabase Dashboard의 `Authentication` → `Rate Limits`에서 다음 요청 제한을 확인한다.
+```text
+https://qncyukpaygjfzjyvefje.supabase.co/auth/v1/callback
+```
 
-- 이메일 발송 요청
-- OTP 또는 매직링크 검증
-- 토큰 갱신
+6. 생성된 Client ID와 Client Secret을 복사한다.
 
-이 서비스 규모에서는 프로젝트 전체 OTP 발송 한도를 시간당 10회 이하로 두는 것을 권장한다. 동일 이메일의 재요청 간격은 60초 이상을 유지한다. Supabase 기본 이메일 공급자를 사용하면 별도의 낮은 이메일 발송 한도도 적용된다.
+Client Secret은 GitHub 저장소나 프론트엔드 코드에 넣지 않는다.
 
-브라우저의 60초 재요청 제한은 우회할 수 있는 사용성 보조 장치다. 실제 남용 방어는 Supabase의 서버측 rate limit이 담당한다.
+## 3. Supabase Google Provider 활성화
 
-개인용으로만 운영한다면 필요한 계정을 먼저 만든 후 `Authentication`의 신규 가입 허용을 끄는 것이 가장 강력하다. 이 경우 코드의 `shouldCreateUser`도 `false`로 변경해야 한다.
+Supabase Dashboard에서:
+
+1. `Authentication` → `Sign In / Providers`로 이동한다.
+2. `Google`을 연다.
+3. Google Provider를 활성화한다.
+4. 앞에서 발급한 Client ID와 Client Secret을 입력한다.
+5. 저장한다.
+
+Supabase에 표시되는 Callback URL이 아래 값과 같은지도 확인한다.
+
+```text
+https://qncyukpaygjfzjyvefje.supabase.co/auth/v1/callback
+```
+
+웹은 `signInWithOAuth({ provider: "google" })`를 사용한다. 인증 이메일을 발송하지 않으므로 Supabase 기본 SMTP의 발송 제한을 사용하지 않는다.
 
 ## 4. 비용 상한 확인
 
 - Free Plan은 초과 사용량에 대해 과금되지 않지만 한도 초과 시 서비스가 제한될 수 있다.
 - Pro Plan이면 조직의 `Billing` → `Cost Control`에서 Spend Cap이 켜져 있는지 확인한다.
 - `Usage`와 `Upcoming Invoice` 화면에서 사용량과 예상 청구액을 주기적으로 확인한다.
-- 커스텀 SMTP를 연결한다면 SMTP 공급자에도 일일 발송 한도와 예산 알림을 설정한다.
 
 데이터베이스 마이그레이션은 RLS와 함께 사용자당 프로젝트를 최대 50개로 제한한다. 따라서 인증된 한 사용자가 프로젝트 행을 무제한 생성하는 공격도 차단된다.
 
@@ -93,8 +111,7 @@ http://localhost:8000/**
 
 ```bash
 npm install
-npm run build
-python3 -m http.server 8000 --directory dist
+npm run dev
 ```
 
 브라우저에서 다음 주소를 연다.
@@ -105,21 +122,23 @@ http://localhost:8000/
 
 HTML 파일을 `file://` 주소로 직접 열면 인증 리디렉션과 브라우저 보안 정책 때문에 정상 동작하지 않을 수 있다.
 
+`npm run dev`는 먼저 Tailwind CSS와 JavaScript를 `dist`에 빌드하고 그 디렉터리만 로컬 서버로 제공한다. 파일을 수정한 뒤에는 서버를 `Ctrl+C`로 종료하고 같은 명령을 다시 실행해야 변경 사항이 반영된다.
+
 ## 8. 기능 확인
 
 다음 순서로 확인한다.
 
-1. 이메일 주소를 입력하고 `이메일로 로그인`을 선택한다.
-2. 받은 이메일의 로그인 링크를 연다.
-3. 웹사이트로 돌아와 로그인된 이메일이 표시되는지 확인한다.
+1. `Google로 계속하기`를 선택한다.
+2. Google 계정을 선택하고 동의 화면을 완료한다.
+3. 웹사이트로 돌아와 로그인된 Google 이메일이 표시되는지 확인한다.
 4. 최초 로그인 시 프로젝트 생성 창이 열리는지 확인한다.
 5. 프로젝트명과 선택 부제를 입력해 프로젝트를 생성한다.
 6. 새로고침 후 생성한 프로젝트가 드롭다운에 남아 있는지 확인한다.
 7. 프로젝트를 추가 생성하고 드롭다운에서 전환한다.
 8. 영수증을 발행해 선택한 프로젝트명이 PNG에 표시되는지 확인한다.
-9. 로그아웃하면 작성 화면이 숨겨지는지 확인한다.
-10. 같은 브라우저에서 로그인 메일을 연속 요청하면 60초 동안 제한되는지 확인한다.
-11. 다른 계정으로 로그인했을 때 첫 계정의 프로젝트가 조회되지 않는지 확인한다.
+9. 두 단말기에서 같은 Google 계정으로 로그인하고 양쪽 세션이 유지되는지 확인한다.
+10. 한 단말기에서 로그아웃해도 다른 단말기의 세션이 유지되는지 확인한다.
+11. 다른 Google 계정으로 로그인했을 때 첫 계정의 프로젝트가 조회되지 않는지 확인한다.
 12. 한 계정에서 프로젝트를 50개보다 많이 생성할 수 없는지 확인한다.
 
 ## 9. 보안 주의사항
@@ -135,6 +154,7 @@ HTML 파일을 `file://` 주소로 직접 열면 인증 리디렉션과 브라�
 - `service_role` 키
 - Database Password
 - JWT Secret
+- Google OAuth Client Secret
 
 Publishable key는 브라우저용 공개 식별자다. 실제 사용자 데이터 보호는 마이그레이션에 포함된 RLS 정책이 담당한다.
 

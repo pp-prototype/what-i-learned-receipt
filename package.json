@@ -3,6 +3,7 @@
   "version": "2.0.0",
   "private": true,
   "scripts": {
+    "dev": "npm run build && node ./scripts/serve.mjs",
     "build": "npm run build:app && npm run build:css",
     "build:app": "node ./scripts/build.mjs",
     "build:css": "tailwindcss -i ./src/input.css -o ./dist/assets/styles.css --minify",
