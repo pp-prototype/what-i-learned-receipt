@@ -20,7 +20,13 @@ const userPanel = document.querySelector("#user-panel");
 const userEmail = document.querySelector("#user-email");
 const logoutButton = document.querySelector("#logout-button");
 const authMessage = document.querySelector("#auth-message");
+const receiptWorkspace = document.querySelector("#receipt-workspace");
 const receiptEditor = document.querySelector("#receipt-editor");
+const receiptGallery = document.querySelector("#receipt-gallery");
+const editorTab = document.querySelector("#editor-tab");
+const galleryTab = document.querySelector("#gallery-tab");
+const galleryStatus = document.querySelector("#gallery-status");
+const galleryGrid = document.querySelector("#gallery-grid");
 const openProjectDialog = document.querySelector("#open-project-dialog");
 const closeProjectDialog = document.querySelector("#close-project-dialog");
 const projectDialog = document.querySelector("#project-dialog");
@@ -40,6 +46,7 @@ const receiptTitle = document.querySelector("#receipt-title");
 const receiptSubtitle = document.querySelector("#receipt-subtitle");
 const receiptNote = document.querySelector("#receipt-note");
 const downloadReceipt = document.querySelector("#download-receipt");
+const receiptMessage = document.querySelector("#receipt-message");
 let currentUser = null;
 let projects = [];
 let previewUrl = "";
@@ -75,6 +82,100 @@ const getRecentProjectKey = () => currentUser
 
 const getSelectedProject = () => {
   return projects.find((project) => project.id === receiptProject.value) || null;
+};
+
+const setActiveTab = (tabName) => {
+  const isEditor = tabName === "editor";
+  receiptEditor.classList.toggle("hidden", !isEditor);
+  receiptGallery.classList.toggle("hidden", isEditor);
+  editorTab.setAttribute("aria-selected", String(isEditor));
+  galleryTab.setAttribute("aria-selected", String(!isEditor));
+  editorTab.className = isEditor
+    ? "rounded-[8px] bg-white px-4 py-2.5 text-sm font-black text-stone-900 shadow-sm"
+    : "rounded-[8px] px-4 py-2.5 text-sm font-black text-stone-500";
+  galleryTab.className = !isEditor
+    ? "rounded-[8px] bg-white px-4 py-2.5 text-sm font-black text-stone-900 shadow-sm"
+    : "rounded-[8px] px-4 py-2.5 text-sm font-black text-stone-500";
+};
+
+const createGalleryCard = (receipt, signedUrl) => {
+  const card = document.createElement("article");
+  card.className = "overflow-hidden rounded-[10px] border border-stone-200 bg-white shadow-sm";
+
+  const link = document.createElement("a");
+  link.href = signedUrl;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.className = "block aspect-[9/14] overflow-hidden bg-stone-100";
+  link.setAttribute("aria-label", `${receipt.title} 영수증 이미지 열기`);
+
+  const image = document.createElement("img");
+  image.src = signedUrl;
+  image.alt = `${receipt.title} 영수증`;
+  image.loading = "lazy";
+  image.className = "h-full w-full object-cover object-top transition duration-200 hover:scale-[1.02]";
+  link.append(image);
+
+  const caption = document.createElement("div");
+  caption.className = "p-3";
+
+  const title = document.createElement("h3");
+  title.className = "truncate text-sm font-black text-stone-900";
+  title.textContent = receipt.title;
+
+  const details = document.createElement("p");
+  details.className = "mt-1 truncate text-xs text-stone-500";
+  details.textContent = `${receipt.project?.name || "프로젝트"} · ${receipt.learning_date}`;
+
+  caption.append(title, details);
+  card.append(link, caption);
+  return card;
+};
+
+const loadGallery = async () => {
+  galleryStatus.textContent = "갤러리를 불러오는 중...";
+  galleryStatus.classList.remove("hidden");
+  galleryGrid.replaceChildren();
+
+  const { data: receipts, error: receiptError } = await supabaseClient
+    .from("receipts")
+    .select("id, title, learning_date, image_path, project:projects(name)")
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  if (receiptError) {
+    galleryStatus.textContent = "갤러리를 불러오지 못했습니다. 데이터베이스 설정을 확인해주세요.";
+    return;
+  }
+
+  if (!receipts.length) {
+    galleryStatus.textContent = "아직 발행한 영수증이 없습니다.";
+    return;
+  }
+
+  const { data: signedImages, error: signedUrlError } = await supabaseClient.storage
+    .from("receipts")
+    .createSignedUrls(receipts.map((receipt) => receipt.image_path), 600);
+
+  if (signedUrlError) {
+    galleryStatus.textContent = "영수증 이미지를 불러오지 못했습니다. Storage 설정을 확인해주세요.";
+    return;
+  }
+
+  const signedUrlByPath = new Map(
+    signedImages
+      .filter((image) => image.signedUrl)
+      .map((image) => [image.path, image.signedUrl]),
+  );
+
+  for (const receipt of receipts) {
+    const signedUrl = signedUrlByPath.get(receipt.image_path);
+    if (signedUrl) {
+      galleryGrid.append(createGalleryCard(receipt, signedUrl));
+    }
+  }
+
+  galleryStatus.classList.add("hidden");
 };
 
 const updateProjectDetails = () => {
@@ -149,7 +250,8 @@ const renderSession = async (user) => {
     loginPanel.classList.remove("hidden");
     userPanel.classList.add("hidden");
     userPanel.classList.remove("flex");
-    receiptEditor.classList.add("hidden");
+    receiptWorkspace.classList.add("hidden");
+    galleryGrid.replaceChildren();
     userEmail.textContent = "";
     return;
   }
@@ -157,10 +259,20 @@ const renderSession = async (user) => {
   loginPanel.classList.add("hidden");
   userPanel.classList.remove("hidden");
   userPanel.classList.add("flex");
-  receiptEditor.classList.remove("hidden");
+  receiptWorkspace.classList.remove("hidden");
+  setActiveTab("editor");
   userEmail.textContent = user.email || "로그인 사용자";
   await loadProjects();
 };
+
+editorTab.addEventListener("click", () => {
+  setActiveTab("editor");
+});
+
+galleryTab.addEventListener("click", async () => {
+  setActiveTab("gallery");
+  await loadGallery();
+});
 
 googleLoginButton.addEventListener("click", async () => {
   googleLoginButton.disabled = true;
@@ -402,13 +514,55 @@ const downloadImage = (canvas, fileName) => {
   link.click();
 };
 
+const saveReceipt = async (blob, receipt) => {
+  if (!currentUser || blob.size > 5 * 1024 * 1024) {
+    throw new Error("Receipt cannot be stored.");
+  }
+
+  const imagePath = `${currentUser.id}/${crypto.randomUUID()}.png`;
+  const { error: uploadError } = await supabaseClient.storage
+    .from("receipts")
+    .upload(imagePath, blob, {
+      contentType: "image/png",
+      cacheControl: "3600",
+      upsert: false,
+    });
+
+  if (uploadError) {
+    throw uploadError;
+  }
+
+  const { error: insertError } = await supabaseClient
+    .from("receipts")
+    .insert({
+      owner_id: currentUser.id,
+      project_id: receipt.projectId,
+      title: receipt.title,
+      subtitle: receipt.subtitle || null,
+      note: receipt.note,
+      learning_date: todayDate.value,
+      image_path: imagePath,
+    });
+
+  if (insertError) {
+    await supabaseClient.storage.from("receipts").remove([imagePath]);
+    throw insertError;
+  }
+};
+
 downloadReceipt.addEventListener("click", async () => {
+  downloadReceipt.disabled = true;
+  downloadReceipt.textContent = "저장하고 발행하는 중...";
+  setMessage(receiptMessage, "");
+
+  try {
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d");
   const width = 900;
   const height = 1560;
   const padding = 72;
-  const project = getSelectedProject()?.name || "나의 학습 프로젝트";
+  const selectedProject = getSelectedProject();
+  const project = selectedProject?.name || "나의 학습 프로젝트";
   const title = receiptTitle.value.trim() || "오늘의 학습 기록";
   const subtitle = receiptSubtitle.value.trim();
   const note = receiptNote.value.trim() || "오늘 배운 내용을 짧게 남겨보세요.";
@@ -551,10 +705,27 @@ downloadReceipt.addEventListener("click", async () => {
   context.textAlign = "left";
 
   const fileName = `learning-receipt-${todayDate.value}.png`;
+  const blob = await canvasToBlob(canvas);
+
+  try {
+    await saveReceipt(blob, {
+      projectId: selectedProject.id,
+      title,
+      subtitle,
+      note,
+    });
+    setMessage(receiptMessage, "갤러리에 저장했습니다.", "success");
+  } catch (error) {
+    console.warn("Receipt storage failed.", error);
+    setMessage(
+      receiptMessage,
+      "이미지는 발행하지만 갤러리에 저장하지 못했습니다. Storage와 마이그레이션 설정을 확인해주세요.",
+      "error",
+    );
+  }
 
   if (isIOSDevice()) {
     try {
-      const blob = await canvasToBlob(canvas);
       const file = new File([blob], fileName, { type: "image/png" });
 
       if (navigator.canShare?.({ files: [file] })) {
@@ -569,4 +740,11 @@ downloadReceipt.addEventListener("click", async () => {
   }
 
   downloadImage(canvas, fileName);
+  } catch (error) {
+    console.error("Receipt generation failed.", error);
+    setMessage(receiptMessage, "영수증을 만들지 못했습니다. 입력한 사진을 확인하고 다시 시도해주세요.", "error");
+  } finally {
+    downloadReceipt.textContent = "저장하고 영수증 발행하기";
+    downloadReceipt.disabled = !getSelectedProject();
+  }
 });

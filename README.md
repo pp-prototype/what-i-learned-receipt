@@ -30,6 +30,8 @@
 - [개선 프로젝트 작업 범위 및 기능 명세](docs/improvement-project-scope.md)
 - [Supabase 정적 웹 연결 설정](docs/supabase-setup.md)
 
+발행한 영수증 PNG는 사용자별 비공개 Supabase Storage에 저장되며 `갤러리` 탭에서 다시 볼 수 있다.
+
 ### 빌드 검증
 
 ```bash
