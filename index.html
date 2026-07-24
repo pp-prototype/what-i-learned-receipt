@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>what-i-learned-receipt</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     tailwind.config = {
       theme: {
@@ -36,9 +37,54 @@
             사진과 짧은 기록을 담아 오늘의 학습을 영수증 이미지로 발행합니다.
           </p>
         </div>
+
+        <section class="max-w-md rounded-[8px] border border-stone-200 bg-white/70 p-5 shadow-sm backdrop-blur">
+          <form id="login-form" class="space-y-3">
+            <div>
+              <h2 class="text-base font-black text-stone-950">내 프로젝트 시작하기</h2>
+              <p class="mt-1 text-sm leading-6 text-stone-600">
+                이메일로 받은 로그인 링크를 누르면 프로젝트를 저장하고 다시 선택할 수 있어요.
+              </p>
+            </div>
+            <label class="block">
+              <span class="sr-only">이메일</span>
+              <input
+                id="login-email"
+                type="email"
+                autocomplete="email"
+                required
+                placeholder="you@example.com"
+                class="w-full rounded-[8px] border border-stone-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
+              />
+            </label>
+            <button
+              id="login-submit"
+              type="submit"
+              class="flex w-full items-center justify-center rounded-[8px] bg-emerald-700 px-4 py-3 text-sm font-black text-white transition hover:bg-emerald-800 focus:outline-none focus:ring-4 focus:ring-emerald-200 disabled:cursor-wait disabled:opacity-60"
+            >
+              이메일로 로그인
+            </button>
+          </form>
+
+          <div id="user-panel" class="hidden items-center justify-between gap-3">
+            <div class="min-w-0">
+              <p class="text-xs font-bold text-stone-500">로그인됨</p>
+              <p id="user-email" class="truncate text-sm font-black text-stone-900"></p>
+            </div>
+            <button
+              id="logout-button"
+              type="button"
+              class="shrink-0 rounded-[8px] border border-stone-200 bg-white px-3 py-2 text-xs font-bold text-stone-700 transition hover:bg-stone-50"
+            >
+              로그아웃
+            </button>
+          </div>
+
+          <p id="auth-message" class="mt-3 hidden rounded-[8px] px-3 py-2 text-sm leading-6" role="status" aria-live="polite"></p>
+        </section>
       </div>
 
-      <article class="relative mx-auto w-full max-w-md rounded-[8px] border border-stone-200 bg-[#fffaf1] p-5 shadow-postcard sm:p-7">
+      <article id="receipt-editor" class="relative mx-auto hidden w-full max-w-md rounded-[8px] border border-stone-200 bg-[#fffaf1] p-5 shadow-postcard sm:p-7">
         <div class="absolute left-0 top-8 h-10 w-1.5 rounded-r-full bg-[#f97316]"></div>
         <div class="absolute right-5 top-5 rounded-full bg-rose-100 px-3 py-1 text-xs font-bold text-rose-700">
           TODAY
@@ -61,19 +107,26 @@
         </header>
 
         <div class="space-y-5 py-5">
-          <label class="block">
-            <span class="text-sm font-bold text-stone-800">프로젝트</span>
-            <input
+          <div>
+            <div class="flex items-center justify-between gap-3">
+              <label for="receipt-project" class="text-sm font-bold text-stone-800">프로젝트</label>
+              <button
+                id="open-project-dialog"
+                type="button"
+                class="text-xs font-black text-emerald-700 transition hover:text-emerald-800"
+              >
+                + 새 프로젝트
+              </button>
+            </div>
+            <select
               id="receipt-project"
-              type="text"
-              maxlength="50"
-              placeholder="예: 사이드 프로젝트, 독서 기록"
-              class="mt-2 w-full rounded-[8px] border border-stone-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
-            />
-            <span class="mt-1.5 block text-xs leading-5 text-stone-500">
-              기록을 모아볼 프로젝트 이름을 적어주세요.
-            </span>
-          </label>
+              required
+              class="mt-2 w-full rounded-[8px] border border-stone-200 bg-white px-4 py-3 text-sm font-semibold outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100 disabled:cursor-wait disabled:bg-stone-100"
+            >
+              <option value="">프로젝트를 불러오는 중...</option>
+            </select>
+            <p id="project-subtitle" class="mt-1.5 hidden text-xs leading-5 text-stone-500"></p>
+          </div>
 
           <label class="block">
             <span class="text-sm font-bold text-stone-800">제목</span>
@@ -154,17 +207,98 @@
       </article>
     </section>
   </main>
+
+  <dialog id="project-dialog" class="w-[calc(100%-2.5rem)] max-w-md rounded-[12px] bg-[#fffaf1] p-0 shadow-2xl backdrop:bg-stone-950/40">
+    <form id="project-form" class="p-6 sm:p-7">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">New project</p>
+          <h2 class="mt-2 text-2xl font-black text-stone-950">새 프로젝트 만들기</h2>
+          <p class="mt-2 text-sm leading-6 text-stone-600">앞으로 반복해서 선택할 기록 묶음을 만들어주세요.</p>
+        </div>
+        <button
+          id="close-project-dialog"
+          type="button"
+          aria-label="프로젝트 만들기 닫기"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-stone-100 text-lg font-bold text-stone-600 transition hover:bg-stone-200"
+        >
+          ×
+        </button>
+      </div>
+
+      <div class="mt-6 space-y-4">
+        <label class="block">
+          <span class="text-sm font-bold text-stone-800">프로젝트명</span>
+          <input
+            id="project-name"
+            type="text"
+            maxlength="50"
+            required
+            placeholder="예: 사이드 프로젝트, 독서 기록"
+            class="mt-2 w-full rounded-[8px] border border-stone-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
+          />
+        </label>
+        <label class="block">
+          <span class="flex items-center justify-between gap-3">
+            <span class="text-sm font-bold text-stone-800">프로젝트 부제</span>
+            <span class="text-xs font-semibold text-stone-400">선택</span>
+          </span>
+          <input
+            id="project-description"
+            type="text"
+            maxlength="100"
+            placeholder="프로젝트의 목표를 한 줄로 적어보세요."
+            class="mt-2 w-full rounded-[8px] border border-stone-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
+          />
+        </label>
+      </div>
+
+      <p id="project-form-message" class="mt-4 hidden rounded-[8px] bg-rose-50 px-3 py-2 text-sm leading-6 text-rose-700" role="alert"></p>
+
+      <button
+        id="project-submit"
+        type="submit"
+        class="mt-6 flex w-full items-center justify-center rounded-[8px] bg-emerald-700 px-5 py-4 text-sm font-black text-white transition hover:bg-emerald-800 focus:outline-none focus:ring-4 focus:ring-emerald-200 disabled:cursor-wait disabled:opacity-60"
+      >
+        프로젝트 만들기
+      </button>
+    </form>
+  </dialog>
+
   <script>
+    const SUPABASE_URL = "https://qncyukpaygjfzjyvefje.supabase.co";
+    const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_luF9gr5DajsmXpzHbyDUYQ_WGayzwPp";
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+    const loginForm = document.querySelector("#login-form");
+    const loginEmail = document.querySelector("#login-email");
+    const loginSubmit = document.querySelector("#login-submit");
+    const userPanel = document.querySelector("#user-panel");
+    const userEmail = document.querySelector("#user-email");
+    const logoutButton = document.querySelector("#logout-button");
+    const authMessage = document.querySelector("#auth-message");
+    const receiptEditor = document.querySelector("#receipt-editor");
+    const openProjectDialog = document.querySelector("#open-project-dialog");
+    const closeProjectDialog = document.querySelector("#close-project-dialog");
+    const projectDialog = document.querySelector("#project-dialog");
+    const projectForm = document.querySelector("#project-form");
+    const projectName = document.querySelector("#project-name");
+    const projectDescription = document.querySelector("#project-description");
+    const projectSubmit = document.querySelector("#project-submit");
+    const projectFormMessage = document.querySelector("#project-form-message");
     const todayDate = document.querySelector("#today-date");
     const photoUpload = document.querySelector("#photo-upload");
     const photoPreview = document.querySelector("#photo-preview");
     const photoPlaceholder = document.querySelector("#photo-placeholder");
     const photoRemove = document.querySelector("#photo-remove");
     const receiptProject = document.querySelector("#receipt-project");
+    const projectSubtitle = document.querySelector("#project-subtitle");
     const receiptTitle = document.querySelector("#receipt-title");
     const receiptSubtitle = document.querySelector("#receipt-subtitle");
     const receiptNote = document.querySelector("#receipt-note");
     const downloadReceipt = document.querySelector("#download-receipt");
+    let currentUser = null;
+    let projects = [];
     let previewUrl = "";
     const now = new Date();
     const year = now.getFullYear();
@@ -172,6 +306,221 @@
     const day = String(now.getDate()).padStart(2, "0");
 
     todayDate.value = `${year}-${month}-${day}`;
+
+    const setMessage = (element, message, type = "info") => {
+      if (!message) {
+        element.textContent = "";
+        element.classList.add("hidden");
+        return;
+      }
+
+      element.textContent = message;
+      element.className = `mt-3 rounded-[8px] px-3 py-2 text-sm leading-6 ${
+        type === "error"
+          ? "bg-rose-50 text-rose-700"
+          : type === "success"
+            ? "bg-emerald-50 text-emerald-800"
+            : "bg-sky-50 text-sky-800"
+      }`;
+    };
+
+    const getRedirectUrl = () => `${window.location.origin}${window.location.pathname}`;
+
+    const getRecentProjectKey = () => currentUser
+      ? `what-i-learned-receipt:last-project:${currentUser.id}`
+      : "";
+
+    const getSelectedProject = () => {
+      return projects.find((project) => project.id === receiptProject.value) || null;
+    };
+
+    const updateProjectDetails = () => {
+      const selectedProject = getSelectedProject();
+      const subtitle = selectedProject?.subtitle?.trim();
+
+      projectSubtitle.textContent = subtitle || "";
+      projectSubtitle.classList.toggle("hidden", !subtitle);
+      downloadReceipt.disabled = !selectedProject;
+      downloadReceipt.classList.toggle("opacity-50", !selectedProject);
+      downloadReceipt.classList.toggle("cursor-not-allowed", !selectedProject);
+
+      if (selectedProject && currentUser) {
+        localStorage.setItem(getRecentProjectKey(), selectedProject.id);
+      }
+    };
+
+    const renderProjects = () => {
+      const recentProjectId = localStorage.getItem(getRecentProjectKey());
+      receiptProject.replaceChildren();
+
+      if (!projects.length) {
+        const option = new Option("먼저 프로젝트를 만들어주세요.", "");
+        receiptProject.add(option);
+        receiptProject.disabled = true;
+        updateProjectDetails();
+        if (!projectDialog.open) {
+          projectDialog.showModal();
+        }
+        projectName.focus();
+        return;
+      }
+
+      for (const project of projects) {
+        receiptProject.add(new Option(project.name, project.id));
+      }
+
+      receiptProject.disabled = false;
+      receiptProject.value = projects.some((project) => project.id === recentProjectId)
+        ? recentProjectId
+        : projects[0].id;
+      updateProjectDetails();
+    };
+
+    const loadProjects = async () => {
+      receiptProject.disabled = true;
+      receiptProject.replaceChildren(new Option("프로젝트를 불러오는 중...", ""));
+
+      const { data, error } = await supabaseClient
+        .from("projects")
+        .select("id, name, subtitle, updated_at")
+        .is("archived_at", null)
+        .order("updated_at", { ascending: false });
+
+      if (error) {
+        projects = [];
+        receiptProject.replaceChildren(new Option("프로젝트를 불러오지 못했습니다.", ""));
+        setMessage(authMessage, "프로젝트를 불러오지 못했습니다. 데이터베이스 설정을 확인해주세요.", "error");
+        return;
+      }
+
+      projects = data;
+      renderProjects();
+    };
+
+    const renderSession = async (user) => {
+      currentUser = user;
+      setMessage(authMessage, "");
+
+      if (!user) {
+        projects = [];
+        loginForm.classList.remove("hidden");
+        userPanel.classList.add("hidden");
+        userPanel.classList.remove("flex");
+        receiptEditor.classList.add("hidden");
+        userEmail.textContent = "";
+        return;
+      }
+
+      loginForm.classList.add("hidden");
+      userPanel.classList.remove("hidden");
+      userPanel.classList.add("flex");
+      receiptEditor.classList.remove("hidden");
+      userEmail.textContent = user.email || "로그인 사용자";
+      await loadProjects();
+    };
+
+    loginForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      loginSubmit.disabled = true;
+      loginSubmit.textContent = "로그인 링크 보내는 중...";
+      setMessage(authMessage, "");
+
+      const { error } = await supabaseClient.auth.signInWithOtp({
+        email: loginEmail.value.trim(),
+        options: {
+          emailRedirectTo: getRedirectUrl(),
+        },
+      });
+
+      if (error) {
+        setMessage(authMessage, `로그인 링크를 보내지 못했습니다: ${error.message}`, "error");
+      } else {
+        setMessage(authMessage, "이메일을 확인해주세요. 받은 로그인 링크를 누르면 이 화면으로 돌아옵니다.", "success");
+        loginForm.reset();
+      }
+
+      loginSubmit.disabled = false;
+      loginSubmit.textContent = "이메일로 로그인";
+    });
+
+    logoutButton.addEventListener("click", async () => {
+      logoutButton.disabled = true;
+      const { error } = await supabaseClient.auth.signOut();
+
+      if (error) {
+        setMessage(authMessage, `로그아웃하지 못했습니다: ${error.message}`, "error");
+      }
+
+      logoutButton.disabled = false;
+    });
+
+    openProjectDialog.addEventListener("click", () => {
+      setMessage(projectFormMessage, "");
+      if (!projectDialog.open) {
+        projectDialog.showModal();
+      }
+      projectName.focus();
+    });
+
+    closeProjectDialog.addEventListener("click", () => {
+      if (projects.length) {
+        projectDialog.close();
+      }
+    });
+
+    projectDialog.addEventListener("cancel", (event) => {
+      if (!projects.length) {
+        event.preventDefault();
+      }
+    });
+
+    projectForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      projectSubmit.disabled = true;
+      projectSubmit.textContent = "프로젝트 만드는 중...";
+      setMessage(projectFormMessage, "");
+
+      const name = projectName.value.trim();
+      const subtitle = projectDescription.value.trim();
+      const { data, error } = await supabaseClient
+        .from("projects")
+        .insert({
+          owner_id: currentUser.id,
+          name,
+          subtitle: subtitle || null,
+        })
+        .select("id, name, subtitle, updated_at")
+        .single();
+
+      if (error) {
+        setMessage(projectFormMessage, `프로젝트를 만들지 못했습니다: ${error.message}`, "error");
+      } else {
+        projects = [data, ...projects];
+        projectForm.reset();
+        projectDialog.close();
+        renderProjects();
+        receiptProject.value = data.id;
+        updateProjectDetails();
+      }
+
+      projectSubmit.disabled = false;
+      projectSubmit.textContent = "프로젝트 만들기";
+    });
+
+    receiptProject.addEventListener("change", updateProjectDetails);
+
+    supabaseClient.auth.onAuthStateChange((_event, session) => {
+      window.setTimeout(() => renderSession(session?.user || null), 0);
+    });
+
+    supabaseClient.auth.getSession().then(({ data, error }) => {
+      if (error) {
+        setMessage(authMessage, `로그인 상태를 확인하지 못했습니다: ${error.message}`, "error");
+        return;
+      }
+
+      renderSession(data.session?.user || null);
+    });
 
     photoUpload.addEventListener("change", () => {
       const file = photoUpload.files[0];
@@ -310,7 +659,7 @@
       const width = 900;
       const height = 1560;
       const padding = 72;
-      const project = receiptProject.value.trim() || "나의 학습 프로젝트";
+      const project = getSelectedProject()?.name || "나의 학습 프로젝트";
       const title = receiptTitle.value.trim() || "오늘의 학습 기록";
       const subtitle = receiptSubtitle.value.trim();
       const note = receiptNote.value.trim() || "오늘 배운 내용을 짧게 남겨보세요.";

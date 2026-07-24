@@ -25,4 +25,7 @@
     - 결과물은 모바일에서 보기 좋은 세로형 PNG 이미지로 다운로드한다
     - 마크다운은 MVP 이후 확장 기능으로 고려한다
 
-### 제품
+### 개발 및 서비스 설정
+
+- [개선 프로젝트 작업 범위 및 기능 명세](docs/improvement-project-scope.md)
+- [Supabase 정적 웹 연결 설정](docs/supabase-setup.md)
