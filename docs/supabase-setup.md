@@ -9,9 +9,10 @@
 1. [Supabase Dashboard](https://supabase.com/dashboard)에서 `what-i-learned-receipt` 프로젝트를 연다.
 2. 왼쪽 메뉴에서 `SQL Editor`를 선택한다.
 3. `New query`를 선택한다.
-4. 저장소의 [`supabase/migrations/202607240001_create_profiles_and_projects.sql`](../supabase/migrations/202607240001_create_profiles_and_projects.sql) 내용을 전체 복사한다.
-5. SQL Editor에 붙여 넣고 `Run`을 선택한다.
-6. 오류 없이 완료되었는지 확인한다.
+4. 아래 마이그레이션을 파일명 순서대로 각각 복사해 실행한다.
+   - [`202607240001_create_profiles_and_projects.sql`](../supabase/migrations/202607240001_create_profiles_and_projects.sql)
+   - [`202607240002_limit_projects_per_user.sql`](../supabase/migrations/202607240002_limit_projects_per_user.sql)
+5. 각 실행이 오류 없이 완료되었는지 확인한다.
 
 이 마이그레이션은 다음 항목을 생성한다.
 
@@ -19,6 +20,7 @@
 - 사용자별 프로젝트를 저장하는 `projects` 테이블
 - 신규 가입자의 프로필을 자동 생성하는 트리거
 - 사용자 본인의 데이터만 조회·변경하게 하는 Row Level Security 정책
+- 사용자당 프로젝트를 최대 50개로 제한하는 데이터베이스 트리거
 
 마이그레이션은 같은 환경에서 다시 실행해도 기존 테이블과 정책을 안전하게 갱신할 수 있도록 작성되어 있다.
 
@@ -33,27 +35,28 @@ Supabase Dashboard에서 다음 항목을 확인한다.
 
 현재 웹은 이메일 매직링크 방식의 `signInWithOtp`를 사용한다.
 
-## 3. Turnstile 봇 방어 연결
+## 3. 인증 요청 제한 확인
 
-로그인 폼의 Turnstile 위젯은 화면 장식이 아니라 Supabase가 서버에서 검증하는 CAPTCHA로 연결해야 한다.
-
-1. Cloudflare Dashboard의 `Turnstile`에서 사이트를 만든다.
-2. 허용 호스트에 `pp-prototype.github.io`를 등록한다.
-3. 발급된 **Site key**는 GitHub 저장소의 `Settings` → `Secrets and variables` → `Actions` → `Variables`에 `TURNSTILE_SITE_KEY`라는 이름으로 등록한다.
-4. 발급된 **Secret key**는 Supabase Dashboard의 Authentication CAPTCHA 설정에서 Turnstile 공급자와 함께 등록한다.
-5. Supabase에서 CAPTCHA 보호를 활성화한다.
-
-Site key는 브라우저에 공개되는 값이다. Secret key는 GitHub 변수나 저장소 파일에 넣지 않고 Supabase Dashboard에만 저장한다. 로컬 빌드는 Cloudflare 공식 테스트 키를 사용하지만, GitHub Actions는 운영 Site key가 없으면 빌드에 실패한다.
-
-## 4. 인증 요청 제한 확인
-
-Supabase Dashboard의 Authentication rate-limit 설정에서 최소한 다음 요청 제한이 활성화되어 있는지 확인한다.
+Supabase Dashboard의 `Authentication` → `Rate Limits`에서 다음 요청 제한을 확인한다.
 
 - 이메일 발송 요청
 - OTP 또는 매직링크 검증
 - 토큰 갱신
 
-초기에는 Supabase 기본 제한을 유지하고, 이메일 발송량이나 비정상 요청이 관찰될 때 더 엄격하게 조정한다. 클라이언트의 60초 재요청 제한은 사용성 보조 장치일 뿐이며, 실제 방어는 Supabase의 서버측 rate limit과 Turnstile 검증이 담당한다.
+이 서비스 규모에서는 프로젝트 전체 OTP 발송 한도를 시간당 10회 이하로 두는 것을 권장한다. 동일 이메일의 재요청 간격은 60초 이상을 유지한다. Supabase 기본 이메일 공급자를 사용하면 별도의 낮은 이메일 발송 한도도 적용된다.
+
+브라우저의 60초 재요청 제한은 우회할 수 있는 사용성 보조 장치다. 실제 남용 방어는 Supabase의 서버측 rate limit이 담당한다.
+
+개인용으로만 운영한다면 필요한 계정을 먼저 만든 후 `Authentication`의 신규 가입 허용을 끄는 것이 가장 강력하다. 이 경우 코드의 `shouldCreateUser`도 `false`로 변경해야 한다.
+
+## 4. 비용 상한 확인
+
+- Free Plan은 초과 사용량에 대해 과금되지 않지만 한도 초과 시 서비스가 제한될 수 있다.
+- Pro Plan이면 조직의 `Billing` → `Cost Control`에서 Spend Cap이 켜져 있는지 확인한다.
+- `Usage`와 `Upcoming Invoice` 화면에서 사용량과 예상 청구액을 주기적으로 확인한다.
+- 커스텀 SMTP를 연결한다면 SMTP 공급자에도 일일 발송 한도와 예산 알림을 설정한다.
+
+데이터베이스 마이그레이션은 RLS와 함께 사용자당 프로젝트를 최대 50개로 제한한다. 따라서 인증된 한 사용자가 프로젝트 행을 무제한 생성하는 공격도 차단된다.
 
 ## 5. 리디렉션 URL 설정
 
@@ -80,10 +83,9 @@ http://localhost:8000/**
 ## 6. GitHub Pages 배포 준비
 
 1. GitHub 저장소의 `Settings` → `Pages`에서 Source를 `GitHub Actions`로 선택한다.
-2. 앞에서 설명한 `TURNSTILE_SITE_KEY` Actions 변수가 등록되어 있는지 확인한다.
-3. Actions의 `Deploy GitHub Pages` 워크플로를 수동 실행한다.
+2. Actions의 `Deploy GitHub Pages` 워크플로를 수동 실행한다.
 
-배포 워크플로는 `npm ci`로 잠긴 의존성을 설치하고, 빌드 및 보안 검사를 통과한 `dist` 디렉터리만 Pages에 올린다. 테스트용 Turnstile 키, 인라인 스크립트 또는 알려진 비밀키 형식이 발견되면 배포 전에 실패한다.
+배포 워크플로는 `npm ci`로 잠긴 의존성을 설치하고, 빌드 및 보안 검사를 통과한 `dist` 디렉터리만 Pages에 올린다. 인라인 스크립트 또는 알려진 비밀키 형식이 발견되면 배포 전에 실패한다.
 
 ## 7. 로컬 실행
 
@@ -116,9 +118,9 @@ HTML 파일을 `file://` 주소로 직접 열면 인증 리디렉션과 브라�
 7. 프로젝트를 추가 생성하고 드롭다운에서 전환한다.
 8. 영수증을 발행해 선택한 프로젝트명이 PNG에 표시되는지 확인한다.
 9. 로그아웃하면 작성 화면이 숨겨지는지 확인한다.
-10. Turnstile 확인 없이 로그인 요청이 전송되지 않는지 확인한다.
-11. 같은 브라우저에서 로그인 메일을 연속 요청하면 60초 동안 제한되는지 확인한다.
-12. 다른 계정으로 로그인했을 때 첫 계정의 프로젝트가 조회되지 않는지 확인한다.
+10. 같은 브라우저에서 로그인 메일을 연속 요청하면 60초 동안 제한되는지 확인한다.
+11. 다른 계정으로 로그인했을 때 첫 계정의 프로젝트가 조회되지 않는지 확인한다.
+12. 한 계정에서 프로젝트를 50개보다 많이 생성할 수 없는지 확인한다.
 
 ## 9. 보안 주의사항
 
@@ -136,6 +138,6 @@ HTML 파일을 `file://` 주소로 직접 열면 인증 리디렉션과 브라�
 
 Publishable key는 브라우저용 공개 식별자다. 실제 사용자 데이터 보호는 마이그레이션에 포함된 RLS 정책이 담당한다.
 
-GitHub Pages는 정적 호스팅이므로 HTTP 응답 헤더를 직접 설정할 수 없다. 이 프로젝트는 HTML 메타 CSP로 스크립트와 네트워크 목적지를 제한하지만, 커스텀 응답 헤더가 필요한 수준으로 성장하면 Cloudflare Pages 같은 헤더 설정 가능 호스팅으로 이전하는 편이 안전하다.
+GitHub Pages는 정적 호스팅이므로 HTTP 응답 헤더를 직접 설정할 수 없다. 이 프로젝트는 HTML 메타 CSP로 스크립트와 네트워크 목적지를 제한한다.
 
 `robots=noindex`는 검색 노출을 줄이는 요청일 뿐 접근 제어나 공격 방어가 아니다.

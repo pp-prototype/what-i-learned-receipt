@@ -43,8 +43,6 @@ const downloadReceipt = document.querySelector("#download-receipt");
 let currentUser = null;
 let projects = [];
 let previewUrl = "";
-let turnstileWidgetId = null;
-let turnstileToken = "";
 const now = new Date();
 const year = now.getFullYear();
 const month = String(now.getMonth() + 1).padStart(2, "0");
@@ -76,44 +74,6 @@ const getLoginCooldownKey = () => "what-i-learned-receipt:login-cooldown";
 const getRemainingLoginCooldown = () => {
   const cooldownUntil = Number(localStorage.getItem(getLoginCooldownKey()) || 0);
   return Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000));
-};
-
-const resetTurnstile = () => {
-  turnstileToken = "";
-  if (turnstileWidgetId !== null && window.turnstile) {
-    window.turnstile.reset(turnstileWidgetId);
-  }
-};
-
-const renderTurnstile = () => {
-  if (!window.turnstile || turnstileWidgetId !== null) {
-    return;
-  }
-
-  turnstileWidgetId = window.turnstile.render("#turnstile-container", {
-    sitekey: appConfig.turnstileSiteKey,
-    theme: "light",
-    action: "magic_link_login",
-    callback: (token) => {
-      turnstileToken = token;
-      setMessage(authMessage, "");
-    },
-    "expired-callback": () => {
-      turnstileToken = "";
-    },
-    "error-callback": () => {
-      turnstileToken = "";
-      setMessage(authMessage, "자동 로그인 시도 방지 확인을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.", "error");
-    },
-  });
-};
-
-const waitForTurnstile = () => {
-  if (window.turnstile) {
-    renderTurnstile();
-    return;
-  }
-  window.setTimeout(waitForTurnstile, 100);
 };
 
 const getRecentProjectKey = () => currentUser
@@ -218,22 +178,14 @@ loginForm.addEventListener("submit", async (event) => {
     return;
   }
 
-  if (!turnstileToken) {
-    setMessage(authMessage, "자동 로그인 시도 방지 확인을 완료해주세요.", "error");
-    return;
-  }
-
   loginSubmit.disabled = true;
   loginSubmit.textContent = "로그인 링크 보내는 중...";
   setMessage(authMessage, "");
 
-  const captchaToken = turnstileToken;
-  turnstileToken = "";
   const { error } = await supabaseClient.auth.signInWithOtp({
     email: loginEmail.value.trim(),
     options: {
       emailRedirectTo: getRedirectUrl(),
-      captchaToken,
       shouldCreateUser: true,
     },
   });
@@ -249,7 +201,6 @@ loginForm.addEventListener("submit", async (event) => {
     loginForm.reset();
   }
 
-  resetTurnstile();
   loginSubmit.disabled = false;
   loginSubmit.textContent = "이메일로 로그인";
 });
@@ -358,8 +309,6 @@ photoUpload.addEventListener("change", () => {
   photoPlaceholder.classList.add("hidden");
   photoRemove.classList.remove("hidden");
 });
-
-waitForTurnstile();
 
 photoRemove.addEventListener("click", () => {
   photoUpload.value = "";

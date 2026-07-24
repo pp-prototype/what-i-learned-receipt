@@ -5,13 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta
     http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self' https://challenges.cloudflare.com; style-src 'self'; img-src 'self' blob: data:; connect-src 'self' https://qncyukpaygjfzjyvefje.supabase.co wss://qncyukpaygjfzjyvefje.supabase.co https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'self'; form-action 'self'"
+    content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; connect-src 'self' https://qncyukpaygjfzjyvefje.supabase.co wss://qncyukpaygjfzjyvefje.supabase.co; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'"
   />
   <meta name="referrer" content="strict-origin-when-cross-origin" />
   <meta name="robots" content="noindex, nofollow, noarchive" />
   <title>what-i-learned-receipt</title>
   <link rel="stylesheet" href="./assets/styles.css" />
-  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" defer></script>
   <script src="./assets/app.js" defer></script>
 </head>
 <body class="min-h-screen bg-[#f6efe3] text-stone-900">
@@ -54,7 +53,6 @@
                 class="w-full rounded-[8px] border border-stone-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
               />
             </label>
-            <div id="turnstile-container" class="min-h-[65px]" aria-label="자동 로그인 시도 방지"></div>
             <button
               id="login-submit"
               type="submit"

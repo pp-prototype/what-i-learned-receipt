@@ -52,13 +52,6 @@ if (!builtHtml.includes("Content-Security-Policy")) {
 if (!builtHtml.includes('rel="noopener noreferrer"') && /target="_blank"/i.test(builtHtml)) {
   failures.push("dist/index.html: target=_blank link is missing rel=noopener noreferrer");
 }
-if (!builtApp.includes("captchaToken")) {
-  failures.push("dist/assets/app.js: CAPTCHA token is not connected to authentication");
-}
-if (process.env.CI && builtApp.includes("1x00000000000000000000AA")) {
-  failures.push("dist/assets/app.js: Cloudflare test key must not be deployed");
-}
-
 if (failures.length) {
   console.error(`Security check failed:\n- ${failures.join("\n- ")}`);
   process.exit(1);

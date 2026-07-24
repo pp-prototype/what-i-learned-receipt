@@ -37,4 +37,4 @@ npm install
 npm run check
 ```
 
-운영 배포는 GitHub Actions의 `Deploy GitHub Pages` 워크플로를 수동 실행한다. 먼저 저장소 Actions 변수 `TURNSTILE_SITE_KEY`와 Supabase의 Turnstile CAPTCHA 설정을 완료해야 한다.
+운영 배포는 GitHub Actions의 `Deploy GitHub Pages` 워크플로를 수동 실행한다. 배포 전 Supabase의 Auth rate limit과 조직의 비용 상한 설정을 확인한다.
